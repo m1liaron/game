@@ -7,7 +7,7 @@ window.addEventListener('load',function(){
     ctx.fillStyle = 'white';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'black';
-    ctx.font = '40px Helvetica';
+    ctx.font = '40px Freeman';
     ctx.textAlign = 'center';
 
     class Player {
@@ -34,7 +34,13 @@ window.addEventListener('load',function(){
             this.frameY = 0;
             this.image = document.getElementById('bull');
             // Ми передаємо таке щоб гравець також не виходив за межи
-            
+        }
+        restart(){
+            this.collisionX = this.game.width * 0.5;
+            this.collisionY = this.game.height * 0.5;
+            this.spriteX = this.collisionX - this.width  * 0.5;
+            this.spriteY = this.collisionY - this.height  * 0.5
+            - 100;
         }
         draw(context){
             context.drawImage(this.image, this.frameX * this.
@@ -209,7 +215,7 @@ window.addEventListener('load',function(){
             - 30; 
             // collisions
             let collisionObject = [this.game.player, ...this.
-            game.obstacles, ...this.game.enemies];
+            game.obstacles, ...this.game.enemies, this.game.hatchlings];
             collisionObject.forEach(object => {
             let [collision, distance, sumOfRadii, dx, dy]
             =  this.game.checkCollision(this,object);
@@ -274,11 +280,13 @@ window.addEventListener('load',function(){
             this.spriteX = this.collisionX - this.width * 0.5;
             this.spriteY = this.collisionY - this.height * 0.5
             - 50;
+            this.width * 0.5
+            this.height * 0.5 - 40;
             // move to safety
             if(this.collisionY < this.game.topMargin){
                 this.markedForDeletion = true;
                 this.game.removeGameObject();
-                this.game.score++;
+                if(!this.game.gameOver) this.game.score++;
                 for (let i = 0; i < 3; i++) {
                     this.game.particles.push(new Spark(
                         this.game, this.collisionX,
@@ -288,7 +296,7 @@ window.addEventListener('load',function(){
             }
             // collision with objects
             let collisionObjects = [this.game.player, ...this.
-                game.obstacles];
+                game.obstacles, ...this.game.eggs];
                 collisionObjects.forEach(object => {
                 let [collision, distance, sumOfRadii, dx, dy]
                 =  this.game.checkCollision(this,object);
@@ -303,7 +311,7 @@ window.addEventListener('load',function(){
                 });  
                 // collision with enemies
                 this.game.enemies.forEach(enemy =>{
-                    if(this.game.checkCollision(this, enemy)[0]){
+                    if(this.game.checkCollision(this, enemy)[0] && this.game.gameOver){
                           this.markedForDeletion = true;
                           this.game.removeGameObject();
                           this.game.lostHatchlings++;
@@ -356,7 +364,7 @@ window.addEventListener('load',function(){
             this.spriteX = this.collisionX - this.width * 0.5;
             this.spriteY = this.collisionY - this.height + 40;
             this.collisionX -= this.speedX;
-             if(this.spriteX + this.width < 0){
+             if(this.spriteX + this.width < 0 && this.game.gameOver){
                 this.collisionX = this.game.width + this.width
                 + Math.random() * this.game.width * 0.5;  
                 this.collisionY = this.game.topMargin + (Math.random() 
@@ -447,15 +455,16 @@ window.addEventListener('load',function(){
             this.eggTimer = 0;
             this.eggInterval = 1000;
             this.numberOfObstacles = 10;
-            this.obstacles = [];
             this.maxEggs = 5;
+            this.obstacles = [];
             this.eggs = [];
             this.enemies = [];
             this.hatchlings = [];
             this.particles = [];
             this.gameObjects = [];
             this.score = 0;
-            this.winningScore = 5; // for testing win
+            this.winningScore = 30; // for win need 30 score
+            this.gameOver = false;
             this.lostHatchlings = 0;
             this.mouse = {
                 x: this.width * 0.5,
@@ -482,6 +491,7 @@ window.addEventListener('load',function(){
             });
             window.addEventListener('keydown', e => {
                 if(e.key ===  'd') this.debug = !this.debug;
+                else if(e.key ===  'r') this.restart();
             });
         }
         render(context,deltaTime){ // deltaTime для відтворення методу
@@ -504,7 +514,7 @@ window.addEventListener('load',function(){
 
             // add eggs periodically
             if(this.eggTimer > this.eggInterval && this.eggs
-                .length < this.maxEggs){
+                .length < this.maxEggs && !this.gameOver){
                 this.addEgg();
                 this.eggTimer = 0;
             } else {
@@ -521,11 +531,15 @@ window.addEventListener('load',function(){
 
             // win / lose message
             if(this.score >= this.winningScore) {
+                this.gameOver = true;
                 context.save();
                 context.fillStyle = 'rgba(0,0,0,0.5';
                 context.fillRect(0, 0, this.width, this.height);
                 context.fillStyle = 'white';
                 context.textAlign = 'center';
+                context.shadowOffsetX = 4;
+                context.shadowOffsetY = 4;
+                context.shadowColor = 'black';
                 let message1;
                 let message2;
                 if(this.lostHatchlings <= 5) {
@@ -535,8 +549,13 @@ window.addEventListener('load',function(){
                 } else {
                     // lose
                     message1 = "Bullocks!"
-                    message2 = "You lost!" + this.lostHatchlings + " hatchlings, don't be a pushover"
+                    message2 = `You lost! ${this.lostHatchlings} hatchlings, don't be a pushover`
                 }
+                context.font = '130px Freeman';
+                context.fillText(message1, this.width * 0.5, this.height * 0.5 - 20);
+                context.font = '40px Freeman';
+                context.fillText(message2, this.width * 0.5, this.height * 0.5 + 30)
+                context.fillText(`Final score ${this.score}. Press 'R' to butt heads againg!`, this.width * 0.5, this.height * 0.5 + 80)
                 context.restore();
             }
         }
@@ -563,6 +582,23 @@ window.addEventListener('load',function(){
             !object.markedForDeletion);
             this.particles = this.particles.filter(object => 
             !object.markedForDeletion);
+        }
+        restart(){
+            this.player.restart();
+            this.obstacles = [];
+            this.eggs = [];
+            this.enemies = [];
+            this.hatchlings = [];
+            this.particles = [];
+            this.mouse = {
+                x: this.width * 0.5,
+                y: this.height * 0.5,
+                pressed:false
+            }
+            this.score = 0;
+            this.lostHatchlings = 0;
+            this.gameOver = false;
+            this.init()
         }
         init(){
             for(let i = 0; i < 5; i++){ // add enemy
@@ -607,8 +643,8 @@ window.addEventListener('load',function(){
     function animate(timeStamp){
         const deltaTime = timeStamp - lastTime;
         lastTime = timeStamp;
-          game.render(ctx,deltaTime);  
-          window.requestAnimationFrame(animate);
+        game.render(ctx,deltaTime);  
+        window.requestAnimationFrame(animate);
     }
     animate(0);
  
